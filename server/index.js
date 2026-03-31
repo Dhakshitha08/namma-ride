@@ -1,58 +1,44 @@
-import express from "express";
-import mongoose from "mongoose";
-import cors from "cors";
-import User from "./models/User.js";
+import express from 'express';
+import mongoose from 'mongoose';
+import cors from 'cors';
+import authRoutes from './routes/auth.js';
 
 const app = express();
 
-app.use(cors());
+// ── Middleware ──────────────────────────────────────────
 app.use(express.json());
+app.use(cors({
+  origin: 'http://localhost:5173', // Vite dev server
+  credentials: true,
+}));
 
-// ✅ CONNECT DATABASE
-mongoose.connect("mongodb+srv://dhakshi081206_db_user:dhak123@ridelink.dtikqnl.mongodb.net/?appName=RideLink")
-  .then(()=>console.log("Mongodb connected"))
-  .catch((err) => console.log(err));
+// ── MongoDB ─────────────────────────────────────────────
+// ⚠️  Move this to a .env file before deploying:
+//     MONGO_URI=mongodb+srv://...
+const MONGO_URI =
+  process.env.MONGO_URI ||
+  'mongodb+srv://dhakshi081206_db_user:dhak123@ridelink.dtikqnl.mongodb.net/nammaRide?retryWrites=true&w=majority&appName=RideLink';
 
-// test route
-app.get("/", (req, res) => {
-  res.send("API is working");
+mongoose
+  .connect(MONGO_URI)
+  .then(() => console.log('✅ MongoDB connected'))
+  .catch((err) => {
+    console.error('❌ MongoDB connection error:', err);
+    process.exit(1);
+  });
+
+// ── Routes ──────────────────────────────────────────────
+app.use('/api/auth', authRoutes);
+
+// health-check
+app.get('/', (req, res) => res.json({ status: 'Namma Ride API running 🚀' }));
+
+// ── Global error handler ────────────────────────────────
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ message: 'Something went wrong', error: err.message });
 });
 
-app.listen(5000, () => {
-  console.log("Server running on port 5000");
-});
-
-app.post("/signup", async (req, res) => {
-  try {
-    const { name, email, password } = req.body;
-
-    const newUser = new User({
-      name,
-      email,
-      password
-    });
-
-    await newUser.save();
-
-    res.status(201).json({ message: "User created successfully" });
-
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-app.post("/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    const user = await User.findOne({ email, password });
-
-    if (user) {
-      res.json({ message: "Login successful" });
-    } else {
-      res.status(401).json({ message: "Invalid credentials" });
-    }
-
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// ── Start ───────────────────────────────────────────────
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
